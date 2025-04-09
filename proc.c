@@ -21,6 +21,9 @@ extern void trapret(void);
 
 static void wakeup1(void *chan);
 
+//helper for fillpstat
+char procStateToChar(enum procstate state);
+
 void
 pinit(void)
 {
@@ -199,12 +202,14 @@ fork(void)
     np->state = UNUSED;
     return -1;
   }
-  np->ticks = 0;
-  np->tickets = (10 > np->parent->tickets) ? 10 : np->parent->tickets;
+  
   np->sz = curproc->sz;
   np->parent = curproc;
   *np->tf = *curproc->tf;
-
+  
+  np->ticks = 0;
+  np->tickets = (10 > np->parent->tickets) ? 10 : np->parent->tickets;
+  
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
 
@@ -543,9 +548,41 @@ fillpstat(pstatTable * statTable) {
   struct proc *p;
 
   int i = 0;
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    (*statTable)[i].tickets = p->tickets;
-    
+  char state;
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){  
+    if ((state = procStateToChar(p->state)) != 'U') {
+
+      (*statTable)[i].state = state;
+      (*statTable)[i].inuse = 1;
+      (*statTable)[i].tickets = p->tickets;
+      (*statTable)[i].ticks = p->ticks;
+      (*statTable)[i].pid = p->pid;
+
+      strncpy((*statTable)[i].name, p->name, 16);
+
+    } else {
+      (*statTable)[i].inuse = 0;
+    }
     i++;
+  }
+}
+
+char
+procStateToChar(enum procstate state) {
+  switch(state) {
+    case UNUSED:
+      return 'U';
+    case EMBRYO:
+      return 'E'; 
+    case SLEEPING:
+      return 'S';
+    case RUNNABLE:
+      return 'A';
+    case RUNNING:
+      return 'R';
+    case ZOMBIE:
+      return 'Z';
+    default:
+      return -1;
   }
 }

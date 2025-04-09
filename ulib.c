@@ -114,6 +114,8 @@ ps() {
   getpinfo(&table);
   pstat_t * p; 
   for(p = (pstat_t *)&table; p < &table[NPROC]; p++) {
-    printf(1, "%d %d %d %c %s\n", p->pid, p->tickets, p->ticks, p->state, p->name);
+    if (p->inuse) {
+      printf(1, "%d\t%d\t%d\t%c\t%s\n", p->pid, p->tickets, p->ticks, p->state, p->name);
+    }
   }
 }
