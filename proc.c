@@ -6,6 +6,7 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
+#include "pstat.h"
 
 struct {
   struct spinlock lock;
@@ -129,6 +130,8 @@ userinit(void)
   if((p->pgdir = setupkvm()) == 0)
     panic("userinit: out of memory?");
   inituvm(p->pgdir, _binary_initcode_start, (int)_binary_initcode_size);
+  p->tickets = 10;
+  p->ticks = 0;
   p->sz = PGSIZE;
   memset(p->tf, 0, sizeof(*p->tf));
   p->tf->cs = (SEG_UCODE << 3) | DPL_USER;
@@ -196,6 +199,8 @@ fork(void)
     np->state = UNUSED;
     return -1;
   }
+  np->ticks = 0;
+  np->tickets = (10 > np->parent->tickets) ? 10 : np->parent->tickets;
   np->sz = curproc->sz;
   np->parent = curproc;
   *np->tf = *curproc->tf;
@@ -530,5 +535,17 @@ procdump(void)
         cprintf(" %p", pc[i]);
     }
     cprintf("\n");
+  }
+}
+
+void
+fillpstat(pstatTable * statTable) {
+  struct proc *p;
+
+  int i = 0;
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    (*statTable)[i].tickets = p->tickets;
+    
+    i++;
   }
 }

@@ -104,3 +104,14 @@ memmove(void *vdst, const void *vsrc, int n)
     *dst++ = *src++;
   return vdst;
 }
+
+void
+ps() {
+  pstatTable * table;
+  getpinfo(*table);
+  struct pstat_t * p; 
+  for(p = &table; p < &table[NPROC]; p++) {
+    awdaowdvuigc
+  }
+  jabiwjb akw + 
+}
