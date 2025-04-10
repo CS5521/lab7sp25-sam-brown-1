@@ -8,6 +8,13 @@
 #include "spinlock.h"
 #include "pstat.h"
 
+#define RAND_MAX ((1U << 31) - 1)
+static int rseed = 189867892;
+int random()
+{
+   return rseed = (rseed * 1103515245 + 12345) & RAND_MAX;
+}
+
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -334,34 +341,51 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
+  int tickets, winner, counter;
   c->proc = 0;
   
   for(;;){
     // Enable interrupts on this processor.
     sti();
 
-    // Loop over process table looking for process to run.
+    // Count the number of total tickets
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    tickets = 0;
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
       if(p->state != RUNNABLE)
         continue;
-
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
-
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
-
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
+      tickets += p->tickets;
     }
-    release(&ptable.lock);
+    // Randomly select a runnable process 
+    if (tickets > 0) {
+      counter = 0;
+      winner = random() % (tickets - 1);
+      for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+      if(p->state != RUNNABLE)
+        continue;
+      counter += p->tickets;
+      if (counter > winner) break;
+      }
+    } else {
+      // continue if there are no processes to run
+      release(&ptable.lock);
+      continue;
+    }
 
+    // Switch to chosen process.  It is the process's job
+    // to release ptable.lock and then reacquire it
+    // before jumping back to us.
+    c->proc = p;
+    switchuvm(p);
+    p->state = RUNNING;
+    p->ticks++;
+    swtch(&(c->scheduler), p->context);
+    switchkvm();
+
+    // Process is done running for now.
+    // It should have changed its p->state before coming back.
+    c->proc = 0;
+    release(&ptable.lock);
   }
 }
 
@@ -558,9 +582,7 @@ fillpstat(pstatTable * statTable)
       (*statTable)[i].tickets = p->tickets;
       (*statTable)[i].ticks = p->ticks;
       (*statTable)[i].pid = p->pid;
-
-      strncpy((*statTable)[i].name, p->name, 16);
-
+      safestrcpy((*statTable)[i].name, p->name, sizeof(p->name));
     } else {
       (*statTable)[i].inuse = 0;
     }
@@ -588,22 +610,3 @@ procstatetochar(enum procstate state)
       return -1;
   }
 }
-
-// int
-// settickets(int tickets) 
-// {
-//   if (tickets < 10) return -1;
-
-//   struct proc *p;
-//   int pid = myproc()->pid;
-//   // find calling process in table
-//   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-//     if (p->pid == pid) break;
-//   }
-//   // return -1 if calling process wasn't found
-//   if (p->pid != pid) return -1;
-
-
-
-//   return 0;
-// }
