@@ -22,7 +22,7 @@ extern void trapret(void);
 static void wakeup1(void *chan);
 
 //helper for fillpstat
-char procStateToChar(enum procstate state);
+char procstatetochar(enum procstate state);
 
 void
 pinit(void)
@@ -209,7 +209,7 @@ fork(void)
   
   np->ticks = 0;
   np->tickets = (10 > np->parent->tickets) ? 10 : np->parent->tickets;
-  
+
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
 
@@ -544,13 +544,14 @@ procdump(void)
 }
 
 void
-fillpstat(pstatTable * statTable) {
+fillpstat(pstatTable * statTable) 
+{
   struct proc *p;
 
   int i = 0;
   char state;
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){  
-    if ((state = procStateToChar(p->state)) != 'U') {
+    if ((state = procstatetochar(p->state)) != 'U') {
 
       (*statTable)[i].state = state;
       (*statTable)[i].inuse = 1;
@@ -568,7 +569,8 @@ fillpstat(pstatTable * statTable) {
 }
 
 char
-procStateToChar(enum procstate state) {
+procstatetochar(enum procstate state) 
+{
   switch(state) {
     case UNUSED:
       return 'U';
@@ -586,3 +588,22 @@ procStateToChar(enum procstate state) {
       return -1;
   }
 }
+
+// int
+// settickets(int tickets) 
+// {
+//   if (tickets < 10) return -1;
+
+//   struct proc *p;
+//   int pid = myproc()->pid;
+//   // find calling process in table
+//   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+//     if (p->pid == pid) break;
+//   }
+//   // return -1 if calling process wasn't found
+//   if (p->pid != pid) return -1;
+
+
+
+//   return 0;
+// }
